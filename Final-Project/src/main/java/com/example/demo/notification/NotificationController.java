@@ -56,13 +56,12 @@ public class NotificationController {
         messagingTemplate.convertAndSend("/sub/notice/list/"+member, notificationRepository.findByName(member));
     }
     @GetMapping("/notifications")
-    @ResponseBody
-    public List<Notification> getAllNotifications(@RequestParam String member) {
+    public ResponseEntity<List<Object>> getAllNotifications(@RequestParam String member) {
         Set<Object> notifications = notificationRepository.findByName(member);
         log.debug("notifications: {}", notifications);
-        return notifications.stream()
+        return ResponseEntity.ok(notifications.stream()
                 .map(notification -> (Notification) notification)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()));
     }
     @PostMapping("/report/notice")
     public ResponseEntity<Void> noticeAll(Notification notification) {

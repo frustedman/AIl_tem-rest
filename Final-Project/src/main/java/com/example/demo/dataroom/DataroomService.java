@@ -19,8 +19,8 @@ public class DataroomService {
         return DataroomDto.create(dao.findById(num).orElse(null));
     }
 
-    public void del(DataroomDto dto){
-        dao.delete(Dataroom.create(dto));
+    public void del(int num){
+        dao.deleteById(num);
     }
     public ArrayList<DataroomDto> findAll(){
         ArrayList<Dataroom> l = dao.findAllByOrderByWdateDesc();

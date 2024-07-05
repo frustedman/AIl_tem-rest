@@ -12,14 +12,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.ui.ModelMap;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.auction.Auction;
@@ -27,7 +25,6 @@ import com.example.demo.auction.AuctionDto;
 import com.example.demo.auction.AuctionService;
 import com.example.demo.dataroom.DataroomDto;
 import com.example.demo.dataroom.DataroomService;
-import com.example.demo.dataroom.ReplyService;
 import com.example.demo.product.Product;
 
 import jakarta.servlet.http.HttpSession;
@@ -39,8 +36,6 @@ public class AllAccessController {
 
 	@Autowired
 	private DataroomService service;
-	@Autowired
-	private ReplyService rservice;
 
 	@Autowired
 	private AuctionService aservice;
@@ -176,9 +171,6 @@ public class AllAccessController {
 	@GetMapping("/qalist")
 	public ResponseEntity<ArrayList<DataroomDto>> qalist() {
 		ArrayList<DataroomDto> list=service.findAll();
-		for(DataroomDto dto:list){
-			dto.setReplies(rservice.findAll(dto));
-		}
 		return ResponseEntity.ok(list);
 	}
 }

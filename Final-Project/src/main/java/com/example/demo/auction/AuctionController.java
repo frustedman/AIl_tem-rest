@@ -46,10 +46,6 @@ public class AuctionController {
 	private ProductService pservice;
 	@Autowired
 	private MemberService mservice;
-	@Autowired
-	private TokenProvider provider;
-	@Autowired
-	private AuthenticationManagerBuilder abuilder;
 	
 	@PostMapping("/add")
 	public ResponseEntity<Boolean> add(AuctionDto a) {
@@ -157,20 +153,21 @@ public class AuctionController {
 
 	@GetMapping("/stop/{num}")
 	public ResponseEntity<Boolean>  stop(int num){
-		AuctionDto auction=aservice.get(num);
-		try {
-			auction.setStatus("경매 마감");
-		}catch(Exception e) {
-			return ResponseEntity.ok(false);
+		boolean flag=aservice.stopAuction(num);
+		if(flag) {
+			return ResponseEntity.ok(true);
 		}
-		return ResponseEntity.ok(true);
+		return ResponseEntity.internalServerError().body(false);
 	}
 
 	@DeleteMapping("/del/{num}")
-	public String del(int num) {
-		aservice.delete(num);
-		map.addAttri
-		return "auction/adminlist";
+	public ResponseEntity<Boolean> del(int num) {
+		try{
+			aservice.delete(num);
+		}catch(Exception e) {
+			return ResponseEntity.internalServerError().body(false);
+		}
+		return ResponseEntity.ok(true);
 	}
 	
 	

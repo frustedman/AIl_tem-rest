@@ -1,16 +1,19 @@
 package com.example.demo.scrap;
 
-import com.example.demo.auction.Auction;
-import com.example.demo.user.Member;
-import com.example.demo.user.MemberDao;
-import lombok.extern.slf4j.Slf4j;
+import java.util.ArrayList;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import com.example.demo.auction.Auction;
+import com.example.demo.auction.AuctionDto;
+import com.example.demo.user.Member;
+import com.example.demo.user.MemberDao;
+import com.example.demo.user.MemberDto;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@Slf4j
 public class ScrapService {
     @Autowired
     private ScrapDao dao;
@@ -22,13 +25,11 @@ public class ScrapService {
     }
 
     public void del(int num){
-        log.debug("service; del");
-        Scrap scrap = dao.findById(num).orElse(null);
-        dao.delete(scrap);
+        dao.deleteById(num);
     }
 
-    public ScrapDto getScrapByAuctionAndMember(Auction auction, Member member){
-        Scrap scrap = dao.findByMemberAndAuction(member,auction);
+    public ScrapDto getScrapByAuctionAndMember(AuctionDto auction, MemberDto member){
+        Scrap scrap = dao.findByMemberAndAuction(Member.create(member),Auction.create(auction));
         if(scrap == null){
             return null;
         }

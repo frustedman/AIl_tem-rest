@@ -142,25 +142,50 @@ public class AuctionService {
 
 	}
 	
-	public boolean stopAuction(AuctionDto auction ) {
+	public boolean stopAuction(int num ) {
+		Auction a= dao.findById(num).orElse(null);
+		AuctionDto auction=AuctionDto.create(a);
+		if(a==null) {
+			return false;
+		}
 		auction.setStatus("경매마감");
-		Auction.Type blind=Auction.Type.BLIND;
 		switch(auction.getType()) {
 		case BLIND :{
-			
-			
-			
+			ArrayList<Bid> blist =bdao.findByParentOrderByNum(null);
+			for(Bid bid :blist) {
+				Member buyer=bid.getBuyer();
+				buyer.setPoint(buyer.getPoint()+bid.getPrice());
+				try {
+					mdao.save(buyer);
+				}catch(Exception e){
+					return false;
+				}
+			}
 		}
-		
 		case NORMAL:{
-			
-			
+			ArrayList<Bid> blist =bdao.findByParentOrderByNum(null);
+			Member buyer=blist.get(0).getBuyer();
+			buyer.setPoint(buyer.getPoint()+blist.get(0).getPrice());
+			try {
+				mdao.save(buyer);
+			}catch(Exception e) {
+				return false;
+			}
 		}
 		case EVENT:{
-			
+			ArrayList<Bid> blist =bdao.findByParentOrderByNum(null);
+			for(Bid bid :blist) {
+				Member buyer=bid.getBuyer();
+				buyer.setPoint(buyer.getPoint()+bid.getPrice());
+				try{
+					mdao.save(buyer);
+				}catch(Exception e) {
+					return false;
+				}
+			}
 		}
 		}
-		ArrayList<Bid> blist= bdao.findByParentOrderByNum(null)
+		return true;
 	}
 	
 	

@@ -3,7 +3,6 @@ package com.example.demo.dataroom;
 import com.example.demo.user.Member;
 import lombok.*;
 
-import java.util.ArrayList;
 import java.util.Date;
 
 @Setter
@@ -17,7 +16,6 @@ public class DataroomDto {
     private String content;
     private int type;
     private Date wdate;
-    private ArrayList<ReplyDto> replies;
 
 
     public static DataroomDto create(Dataroom dto) {

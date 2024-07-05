@@ -1,5 +1,7 @@
 package com.example.demo.product;
 
+import java.util.ArrayList;
+
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.demo.product.Product.Categories;
@@ -31,7 +33,6 @@ public class ProductDto {
 	private MultipartFile f3;
 	private MultipartFile f4;
 	private MultipartFile f5;
-
     public static ProductDto create(Product p) {
     	return ProductDto.builder()
     			.num(p.getNum())
@@ -63,8 +64,8 @@ public class ProductDto {
 		this.f3=f3;
 		this.f4=f4;
 		this.f5=f5;
-
 	}
+
 
 
 }

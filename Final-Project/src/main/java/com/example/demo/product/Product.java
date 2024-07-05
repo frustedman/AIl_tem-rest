@@ -23,12 +23,12 @@ public class Product {
     private Member seller;
 
     private String name;
+    
     private String img1;
     private String img2;
     private String img3;
     private String img4;
     private String img5;
-    
     @Enumerated(EnumType.STRING)
     private Categories categories;    
    

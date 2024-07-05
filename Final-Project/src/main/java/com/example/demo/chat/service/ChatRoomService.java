@@ -2,6 +2,7 @@ package com.example.demo.chat.service;
 
 import com.example.demo.auction.Auction;
 import com.example.demo.auction.AuctionDao;
+import com.example.demo.chat.domain.ChatMessage;
 import com.example.demo.chat.domain.ChatRoom;
 import com.example.demo.chat.repository.RedisChatRoomRepository;
 import com.example.demo.chat.repository.RedisMessageRepository;
@@ -9,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.*;
 
@@ -110,5 +113,18 @@ public class ChatRoomService {
             member = roomById.getBuyer();
         }
         return member;
+    }
+    
+    public ChatRoom enterRoom(String roomId, String member) {
+    	addChatRoom(roomId,member);
+        check(roomId);
+        Set<Object> lastMessage = messageRepository.getLastMessage(roomId);
+        for(Object o:lastMessage) {
+            ChatMessage message=(ChatMessage)o;
+            if(!(message.getSender().equals(member))) {
+                check2(roomId);
+            }
+        }
+        return getChatroom(roomId);
     }
 }

@@ -1,63 +1,57 @@
 package com.example.demo.dataroom;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
+import org.springframework.http.ResponseEntity;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import javax.xml.crypto.Data;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
-@Controller
-@Slf4j
+@CrossOrigin(origins="*")
+@RestController
 @RequestMapping("/auth/dataroom")
 public class DataroomController {
     @Autowired
     private DataroomService service;
-    @Autowired
-    private ReplyService rservice;
+
 
     @PostMapping("/add")
-    public String add(DataroomDto dto){
-        service.save(dto);
-        return "redirect:/all/qalist";
+    public ResponseEntity<Boolean> add(DataroomDto dto){
+        try {
+        	service.save(dto);
+        }catch(Exception e) {
+        	return ResponseEntity.badRequest().body(false);
+        }
+        return ResponseEntity.ok(true);
+    }
+    
+    @PatchMapping("/update")
+    public ResponseEntity<Boolean> update(DataroomDto dto){
+    	try {
+        	service.save(dto);
+        }catch(Exception e) {
+        	return ResponseEntity.badRequest().body(false);
+        }
+        return ResponseEntity.ok(true);
     }
 
-    @PostMapping("/reply")
-    public String reply(ReplyDto dto){
-        log.debug("dto="+dto);
-        rservice.save(dto);
-        log.debug("after dto="+dto);
-        return "redirect:/all/qalist";
+    @DeleteMapping("/delete/{num}")
+    public ResponseEntity<Boolean> delete(int num){
+        try {
+        	 service.del(num);
+        }catch(Exception e) {
+        	return ResponseEntity.badRequest().body(false);
+        }
+        return ResponseEntity.ok(true);
     }
 
-    @ResponseBody
-    @PostMapping("/update")
-    public Map update(int num, String content){
-        DataroomDto dto = service.get(num);
-        dto.setContent(content);
-        service.save(dto);
-        Map map = new HashMap<>();
-        map.put("flag", true);
-        return map;
-    }
-
-    @GetMapping("/delete")
-    public String delete(int num){
-        DataroomDto dto = service.get(num);
-        service.del(dto);
-        Map map = new HashMap<>();
-        map.put("flag", true);
-        return "redirect:/all/qalist";
-    }
-
-    @RequestMapping("/detail")
-    public String detail(int num, ModelMap map){
-        DataroomDto dto = service.get(num);
-        map.addAttribute("dataroom", dto);
-        return "dataroom/detail";
+    @GetMapping("/detail/{num}")
+    public ResponseEntity<DataroomDto> detail(int num){
+        return ResponseEntity.ok(service.get(num));
     }
 }
