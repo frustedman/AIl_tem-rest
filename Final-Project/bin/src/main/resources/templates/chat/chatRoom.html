@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:with="roomId=${roomId}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        #chat {
+            width: 400px;
+            margin: 20px auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+        #sender {
+            background-color: #d1ffd1;
+            padding: 8px;
+            border-radius: 10px;
+        }
+
+        #time {
+            font-size: 8px;
+            color: grey;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message.sender {
+            text-align: right;
+            align-self: flex-end;
+        }
+
+        .message.recipient {
+            text-align: left;
+            align-self: flex-start;
+        }
+        #image {
+            padding: 8px;
+            border-radius: 10px;
+        }
+        #receiver {
+            background-color: #d1e0ff;
+            padding: 8px;
+            border-radius: 10px;
+        }
+
+        #messages {
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+    <title>Chat Room</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.2/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+<div id="chat">
+    <h2>Chat Room: <span id="room-id" th:text="${roomId}"></span></h2>
+    <div id="messages">
+        <!-- Messages will be loaded here -->
+    </div>
+    <input type="hidden" th:value="${session.loginId}" id="session-id">
+    <input type="text" id="messageInput" placeholder="Enter your message">
+    <button id="sendMessageBtn">Send</button>
+    <input type="file" id="fileInput" style="display:none">
+    <button id="sendImageButton">Send Image</button>
+</div>
+
+<script>
+    var stompClient = null;
+    var roomId = document.getElementById("room-id").innerText;
+    var sessionId = document.getElementById("session-id").value;
+    var fileInput = document.getElementById('fileInput');
+
+    function connect() {
+        var socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/sub/messages/' + roomId, function (message) {
+                showMessage(JSON.parse(message.body));
+            });
+        });
+    }
+
+    function sendMessage() {
+        var messageInput = document.getElementById("messageInput").value;
+        if (messageInput.trim() !== '') {
+            var message = {
+                sender: sessionId,
+                contentType: 'text',
+                content: messageInput
+            };
+            stompClient.send("/pub/chat/" + roomId, {}, JSON.stringify(message));
+            document.getElementById("messageInput").value = '';
+        }
+    }
+
+    function sendImage(file, maxWidth, maxHeight, quality) {
+        var reader = new FileReader();
+        reader.onload = function(event) {
+            var img = new Image();
+            img.onload = function() {
+                var canvas = document.createElement('canvas');
+                var ctx = canvas.getContext('2d');
+
+                var width = img.width;
+                var height = img.height;
+
+                // Calculate new dimensions to fit within maxWidth and maxHeight
+                if (width > maxWidth || height > maxHeight) {
+                    var ratio = Math.min(maxWidth / width, maxHeight / height);
+                    width *= ratio;
+                    height *= ratio;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // Draw the image onto the canvas
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Compress the image by converting it to a data URL with a lower quality setting
+                var compressedDataUrl = canvas.toDataURL('image/jpeg', quality); // Adjust the quality parameter (0.0 to 1.0)
+
+                // Send the compressed image data URL
+                var message = {
+                    sender: sessionId,
+                    contentType: 'image',
+                    content: compressedDataUrl
+                };
+                stompClient.send("/pub/chat/image/" + roomId, {}, JSON.stringify(message));
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function showMessage(message) {
+        let messagesDiv = document.getElementById("messages");
+        let messageElement = document.createElement('div');
+        messageElement.className = 'message';
+        if (message.contentType === 'image') {
+            if (message.sender === sessionId) {
+                messageElement.classList.add('sender');
+                messageElement.style.backgroundColor = 'initial';
+                messageElement.innerHTML = '<span id="time"> ' + message.timestamp + ' </span>' +
+                    '<span id="image"><img src="' + message.content + '" style="max-width: 100px; max-height: 100px;"></span>';
+            } else {
+                messageElement.classList.add('recipient');
+                messageElement.innerHTML = '<span id="receiver"><img src="' + message.content + '" style="max-width: 100px; max-height: 100px;"></span>' +
+                    '<span id="image"> ' + message.timestamp + ' </span>';
+            }
+        } else {
+            if (message.sender === sessionId) {
+                messageElement.classList.add('sender');
+                messageElement.style.backgroundColor = 'initial';
+                messageElement.innerHTML = '<span id="time"> ' + message.timestamp + ' </span>' + '<span id="sender">' + message.content + '</span>';
+            } else {
+                messageElement.classList.add('recipient');
+                messageElement.innerHTML = '<span id="receiver">' + message.content + '</span>' + '<span id="time"> ' + message.timestamp + ' </span>';
+            }
+        }
+        messagesDiv.appendChild(messageElement);
+    }
+
+    function loadPreviousMessages() {
+        $.get('/auth/rooms/' + roomId + '/messages', function(messages) {
+            messages.forEach(function(message) {
+                showMessage(message);
+            });
+        });
+    }
+
+    document.getElementById("messageInput").addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    });
+
+    document.getElementById("sendImageButton").addEventListener("click", function() {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function(event) {
+        var file = event.target.files[0];
+        if (file) {
+            sendImage(file,800,800,0.5);
+        }
+    });
+
+    loadPreviousMessages();
+    connect();
+</script>
+</body>
+</html>
+

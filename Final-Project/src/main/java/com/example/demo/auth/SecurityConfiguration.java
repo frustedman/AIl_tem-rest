@@ -8,14 +8,19 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HttpBasicConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import jakarta.servlet.DispatcherType;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfiguration {
+	private final TokenProvider provider;
 	@Bean
 	public PasswordEncoder passwordEncoder() {
 		return PasswordEncoderFactories.createDelegatingPasswordEncoder();
@@ -40,19 +45,14 @@ public class SecurityConfiguration {
 				.requestMatchers("/","/all/**", "/join", "/error", "/login" , "/idcheck","/app.js","/favicon.ico","/price.js","/images/**", "/css/**", "/images/**", "/js/**", "/style.css","/notice.js","/webjars/**").permitAll()
 						.requestMatchers("/ws/**").permitAll()
 				)
-		.formLogin((login)->login
-				.loginPage("/loginform")  //로그인 폼 url 설정
-				.loginProcessingUrl("/login")  //로그인 처리 url
-				.usernameParameter("id")		//로그인 페이지에서 id 입력 양식의 이름
-				.passwordParameter("pwd")       //로그인 페이지에서 pwd 입력 양식의 이름
-				.defaultSuccessUrl("/", true).permitAll()
-				.successHandler(new MySuccessHandler())
-				.failureHandler(new MyFailureHandler())
-		);
+	// 토큰 처리하는 필터를 현재 필터 앞에 붙임
+	.addFilterBefore(new JwtAuthenticationFilter(provider), UsernamePasswordAuthenticationFilter.class);
+	// 세션 정책을 stateless로 설정 . 상태 유지 안함
+	http.sessionManagement(configurer->configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+	
 		return http.build();
 	}
 }
-
 
 
 

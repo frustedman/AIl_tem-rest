@@ -7,14 +7,21 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.bid.Bid;
+import com.example.demo.bid.BidDao;
 import com.example.demo.product.Product;
 import com.example.demo.user.Member;
+import com.example.demo.user.MemberDao;
 
 @Service
 public class AuctionService {
 
 	@Autowired
 	private AuctionDao dao;
+	@Autowired
+	private BidDao bdao;
+	@Autowired
+	private MemberDao mdao;
 
 	public void save(AuctionDto dto) {
 		dao.save(Auction.create(dto));
@@ -134,5 +141,28 @@ public class AuctionService {
 		return list;
 
 	}
+	
+	public boolean stopAuction(AuctionDto auction ) {
+		auction.setStatus("경매마감");
+		Auction.Type blind=Auction.Type.BLIND;
+		switch(auction.getType()) {
+		case BLIND :{
+			
+			
+			
+		}
+		
+		case NORMAL:{
+			
+			
+		}
+		case EVENT:{
+			
+		}
+		}
+		ArrayList<Bid> blist= bdao.findByParentOrderByNum(null)
+	}
+	
+	
 
 }

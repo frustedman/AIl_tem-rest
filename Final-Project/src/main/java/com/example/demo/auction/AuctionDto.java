@@ -1,6 +1,7 @@
 package com.example.demo.auction;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -79,4 +80,21 @@ public class AuctionDto {
 			this.mino=mino;
 		}
 	    
+	    public String getTime (int state) {
+	    	Calendar cal = Calendar.getInstance();
+	    	if(state==0) {
+	    		cal.setTime(this.getStart_time());
+				String time=""+cal.get(Calendar.DAY_OF_MONTH);
+				time+="일 "+cal.get(Calendar.HOUR_OF_DAY);
+				time+="시"+cal.get(Calendar.MINUTE)+"분";
+				return time;
+	    	}else {
+	    		cal.setTime(this.getEnd_time());
+				String time2=""+cal.get(Calendar.DAY_OF_MONTH);
+				time2+="일 "+cal.get(Calendar.HOUR_OF_DAY);
+				time2+="시"+cal.get(Calendar.MINUTE)+"분";
+				return time2;
+	    	}
+	    	
+	    }
 }

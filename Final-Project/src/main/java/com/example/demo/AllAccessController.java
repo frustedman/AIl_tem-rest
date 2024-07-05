@@ -7,27 +7,33 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.example.demo.auction.Auction;
-import com.example.demo.dataroom.DataroomDto;
-import com.example.demo.dataroom.DataroomService;
-import com.example.demo.dataroom.ReplyService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.util.FileCopyUtils;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.auction.Auction;
 import com.example.demo.auction.AuctionDto;
 import com.example.demo.auction.AuctionService;
+import com.example.demo.dataroom.DataroomDto;
+import com.example.demo.dataroom.DataroomService;
+import com.example.demo.dataroom.ReplyService;
 import com.example.demo.product.Product;
 
 import jakarta.servlet.http.HttpSession;
 
-@Controller
+@CrossOrigin(origins="*")
+@RestController
 @RequestMapping("/all")
 public class AllAccessController {
 
@@ -42,9 +48,62 @@ public class AllAccessController {
 	@Value("${spring.servlet.multipart.location}")
 	private String path;
 	
+	@GetMapping("/list")	
+	public ResponseEntity<Map<String,AuctionDto>> getList(){
+		ArrayList<AuctionDto> l = aservice.getAllByBids("경매중");
+		Map<String,AuctionDto> map=new HashMap<>();
+		ArrayList<String> list = new ArrayList<>();
+		for (int i = 0; i < l.size(); i++) {
+			if (l.get(i).getType().equals(Auction.Type.BLIND)) {
+				l.get(i).setMax(l.get(i).getMin());
+			}
+			list.add(null);
+			map.put("HBA" + (list.size()), l.get(i));
+			if (list.size() > 5) {
+				break;
+			}
+		}
+		ArrayList<AuctionDto> l2 = aservice.getAll();
+		ArrayList<String> list2 = new ArrayList<>();
+		for (int i = 0; i < l2.size(); i++) {
+			if (l2.get(i).getType().equals(Auction.Type.BLIND) && l2.get(i).getStatus().equals("경매중")) {
+				list2.add(null);
+				map.put("BA" + (list2.size()), l2.get(i));
+			}
+			if (list2.size() > 5) {
+				break;
+			}
+		}
+		ArrayList<AuctionDto> l3 = aservice.getAll();
+		ArrayList<String> list3 = new ArrayList<>();
+		for (int i = 0; i < l2.size(); i++) {
+			if (l2.get(i).getType().equals(Auction.Type.EVENT) && l3.get(i).getStatus().equals("경매중")) {
+				list3.add(null);
+				map.put("EA" + (list3.size()), l3.get(i));
+			}
+			if (list3.size() > 5) {
+				break;
+			}
+		}
+		ArrayList<AuctionDto> l4 = aservice.getAll();
+		ArrayList<String> list4 = new ArrayList<>();
+		for (int i = 0; i < l4.size(); i++) {
+			if (l4.get(i).getStatus().equals("경매중")) {
+				list4.add(null);
+				map.put("LA" + (list4.size()), l4.get(i));
+			}
+			if (list4.size() > 5) {
+				break;
+			}
+		}
+		return ResponseEntity.ok(map);
+	}
+	
+	
+	
+	
 	@PostMapping("/getbyprodname")
-	public String list(String prodname,ModelMap map,HttpSession session) {
-		System.out.println(prodname);
+	public ResponseEntity<ArrayList<AuctionDto>> list(String prodname) {
 		ArrayList<AuctionDto> l =new ArrayList<>();
 		ArrayList<AuctionDto> list=aservice.getByProdName(prodname);
 		
@@ -52,17 +111,12 @@ public class AllAccessController {
 			if(dto.getStatus().equals("경매중")) {
 				l.add(dto);
 			}
-		}
-		map.addAttribute("list", l);
-		session.setAttribute("list", l);
-		return "auction/list";
+		}		
+		return ResponseEntity.ok(l);
 	}
-
-	@ResponseBody
-	@GetMapping("/ajaxcategories")
-	public Map Ajaxcategories(Product.Categories categories,HttpSession session) {
-		Auction.Type atype= (Auction.Type) session.getAttribute("atype");
-		Map map=new HashMap();
+	@GetMapping("/ajaxcategories/{categories}")
+	public ResponseEntity<ArrayList<AuctionDto>> Ajaxcategories(Product.Categories categories,HttpSession session) {
+		Auction.Type atype= (Auction.Type) session.getAttribute("auction_type");
 		ArrayList<AuctionDto> list2 =aservice.getByStatus("경매중");
 		ArrayList<AuctionDto> list=new ArrayList<>();
 		if (atype == null) {
@@ -79,25 +133,13 @@ public class AllAccessController {
 			}
 
 		}
-		map.put("list", list);
-		return map;
-	}
-	@GetMapping("/categories")
-	public String categories(Product.Categories categories,ModelMap map) {
-		ArrayList<AuctionDto> l =new ArrayList<>();
-		System.out.println(categories);
-		ArrayList<AuctionDto> list=aservice.getByProdCategories(categories);
-		for(AuctionDto dto:list) {
-			if(dto.getStatus().equals("경매중")) {
-				l.add(dto);
-			}
-		}
-		map.addAttribute("list", l);
-		return "auction/list";
+		return ResponseEntity.ok(list);
 	}
 	
-	@GetMapping("/list")
-	public String list(ModelMap map, HttpSession session, Auction.Type atype) {
+	// 카테고리 잠들다	
+	
+	@GetMapping("/list/{atype}")
+	public ResponseEntity<ArrayList<AuctionDto>> list(HttpSession session,@PathVariable Auction.Type atype) {
 		ArrayList<AuctionDto> list2 =aservice.getByStatus("경매중");
 		ArrayList<AuctionDto> list=new ArrayList<>();
 		if (atype == null) {
@@ -110,9 +152,7 @@ public class AllAccessController {
 			}
 			session.setAttribute("auction_type", atype);
 		}
-		map.addAttribute("list", list);
-		map.addAttribute("type",atype);
-		return "auction/list";
+		return ResponseEntity.ok(list);
 	}
 
 	@GetMapping("/read-img")
@@ -134,13 +174,11 @@ public class AllAccessController {
 	}
 
 	@GetMapping("/qalist")
-	public String qalist(ModelMap map, @RequestParam(value = "type", defaultValue = "0")int type) {
+	public ResponseEntity<ArrayList<DataroomDto>> qalist() {
 		ArrayList<DataroomDto> list=service.findAll();
 		for(DataroomDto dto:list){
 			dto.setReplies(rservice.findAll(dto));
 		}
-		map.addAttribute("list", list);
-		map.addAttribute("type", type);
-		return "dataroom/list";
+		return ResponseEntity.ok(list);
 	}
 }

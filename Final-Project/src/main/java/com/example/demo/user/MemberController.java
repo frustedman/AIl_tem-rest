@@ -5,256 +5,172 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.ModelMap;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.auction.Auction;
 import com.example.demo.auction.AuctionDto;
 import com.example.demo.auction.AuctionService;
+import com.example.demo.auth.TokenProvider;
 import com.example.demo.card.Card;
 import com.example.demo.card.CardDto;
 import com.example.demo.card.CardService;
 
-import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.servlet.ModelAndView;
 
 @Slf4j
-@Controller
+@CrossOrigin(origins = "*")
+@RestController
 public class MemberController {
-//2222
 	@Autowired
 	private MemberService service;
 	@Autowired
 	private CardService cservice;
 	@Autowired
-	private AuctionService aservice;
+	private TokenProvider provider;
+	@Autowired
+	private AuthenticationManagerBuilder abuilder;
 
-
-	@GetMapping("/join")
-	public String joinForm() {
-		return "member/login";
-	}
-	
 	@PostMapping("/join")
-	public String join(MemberDto u) {
-		
-		service.save(u);
-		return "redirect:/";
+	public ResponseEntity<Boolean> join(MemberDto u) {
+		try {
+			service.save(u);
+		}catch(Exception e){
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
+		}
+		return ResponseEntity.ok(true);
+	}
+
+	@PostMapping("/login")
+	public ResponseEntity<MemberResponseDto> login(String id, String pwd) {
+		UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(id, pwd);
+		Authentication auth = abuilder.getObject().authenticate(authToken); // authenticate:인증메서드 . 인증한 결과를
+																			// Authentication 객체에 담아서 반환
+		boolean flag = auth.isAuthenticated(); // 인증결과 true or false
+		if (flag) {
+			// 인증 성공시 토큰 생성
+			String token = provider.getToken(service.getUser(id));
+			String type = provider.getUserRole(token);
+			// 토큰을 요청자에게 전달
+			return ResponseEntity.ok(new MemberResponseDto(id,token,type));  
+		}
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
 	}
 	
-	@GetMapping("/loginform")
-	public String loginForm(String path,ModelMap map,HttpSession session,String msg) {
-		map.addAttribute("path",path);
-		map.addAttribute("msg",msg);
-		return "member/login";
-	}
-
-	@RequestMapping("/auth/login")
-	public String alogin(ModelMap map) {
-		ArrayList<AuctionDto> l=aservice.getAllByBids("경매중");
-		ArrayList<String> list= new ArrayList<>();
-		for(int i=0;i<l.size();i++) {
-			if(l.get(i).getType().equals(Auction.Type.BLIND)) {
-				l.get(i).setMax(l.get(i).getMin());
-			}
-			list.add(null);
-			map.addAttribute("HBA"+(list.size()),l.get(i));
-			if(list.size()>5) {
-				break;
-			}
+	@DeleteMapping("/auth/out/{id}")
+	public ResponseEntity<ArrayList<MemberDto>> out(@PathVariable String id) {
+		try {
+			service.delMember(id);
+		}catch(Exception e) {
+			ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 		}
-		ArrayList<AuctionDto> l2=aservice.getAll();
-		ArrayList<String> list2= new ArrayList<>();
-		for(int i=0;i<l2.size();i++) {
-			if(l2.get(i).getType().equals(Auction.Type.BLIND) && l2.get(i).getStatus().equals("경매중")) {
-				list2.add(null);
-				map.addAttribute("BA"+(list2.size()),l2.get(i));
-			}
-			if(list2.size()>5) {
-				break;
-			}
-		}
-		ArrayList<AuctionDto> l3=aservice.getAll();
-		ArrayList<String> list3= new ArrayList<>();
-		for(int i=0;i<l2.size();i++) {
-			if(l2.get(i).getType().equals(Auction.Type.EVENT) && l3.get(i).getStatus().equals("경매중")) {
-				list3.add(null);
-				map.addAttribute("EA"+(list3.size()),l3.get(i));
-			}
-			if(list3.size()>5) {
-				break;
-			}
-		}
-		ArrayList<AuctionDto> l4 = aservice.getAll();
-		ArrayList<String> list4= new ArrayList<>();
-		for(int i=0;i<l4.size();i++) {
-			if(l4.get(i).getStatus().equals("경매중")) {
-				list4.add(null);
-				map.addAttribute("LA"+(list4.size()),l4.get(i));
-			}
-			if(list4.size()>5) {
-				break;
-			}
-		}
-		return "index";
+		return ResponseEntity.ok(service.getAll());
 	}
 
-	// 관리자가 로그인 후 이동할 경로
-	@RequestMapping("/auth/index_admin")
-	public String adminHome() {
-		return "index_admin";
+	@GetMapping("/auth/member/list")
+	public ResponseEntity<ArrayList<MemberDto>> list() {
+		return ResponseEntity.ok(service.getAll());
 	}
 
-	// 회원이 로그인 후 이동할 경로
-	@RequestMapping("/auth/index_member")
-	public String memberHome() {
-		return "index_member";
-	}
-
-	@RequestMapping("/auth/logout")
-	public String logout(HttpSession session) {
-		session.invalidate();
-		return "redirect:/";
-	}
-
-	@RequestMapping("/auth/out")
-	public String out(String id, ModelMap map) {
-		service.delMember(id);
-		map.addAttribute("list",service.getAll());
-		return "member/list";
-	}
-
-	@RequestMapping("/auth/member/list")
-	public String list(ModelMap map) {
-		map.addAttribute("list",service.getAll());
-		return "member/list";
-	}
-
-	@GetMapping("/auth/member/edit")
-	public String editform(String id, ModelMap map) {
-		MemberDto m = service.getUser(id);
-		map.addAttribute("m", m);
-		return "member/edit";
-	}
-
-	@PostMapping("/auth/member/edit")
-	public String edit(MemberDto m) {
-		service.edit(m);
-		return "redirect:/auth/member/list";
-	}
-
-	@GetMapping("/auth/member/edit2")
-	public ModelAndView editform2(String id) {
-		MemberDto m = service.getUser(id);
-		ModelAndView mav = new ModelAndView("member/edit");
-		mav.addObject("m", m);
-		return mav;
-	}
-
-	@PostMapping("/auth/member/edit2")
-	public String edit2(MemberDto m) {
+	@PatchMapping("/auth/member/edit")
+	public ResponseEntity<String> edit2(@RequestBody MemberDto m) {
 		MemberDto d = service.getUser(m.getId());
 		d.setName(m.getName());
 		d.setEmail(m.getEmail());
-		if(!m.getPwd().isEmpty()) {
-			service.save(d);
-			return "/index_member";
+		String msg="";
+		if (!m.getPwd().isEmpty()) {
+			try {
+				service.save(d);
+				msg="비밀번호 변경 성공";
+			} catch (Exception e) {
+				return ResponseEntity.badRequest().body("회원 정보 수정 실패");
+			}
+			return ResponseEntity.ok(msg);
 		}
-		service.edit(d);
-		return "/index_member";
-	}
-
-	@GetMapping("/auth/member/card")
-	public String cardform(String id, ModelMap map) {
-		MemberDto m = service.getUser(id);
-		if(m.getCardnum()!=null){
-			map.addAttribute("flag",false);
+		try {
+			service.edit(d);
+			msg="회원 정보 성공";
+		} catch (Exception e) {
+			return ResponseEntity.badRequest().body("회원 정보 수정 실패");
 		}
-		else{
-			map.addAttribute("flag",true);
-		}
-		map.addAttribute("member", m);
-		return "member/card";
+		return ResponseEntity.ok(msg);
 	}
 
 	@PostMapping("/auth/member/card")
-	public String card(CardDto dto, String id, ModelMap map) {
-		//일치하는 카드 가져오기
+	public ResponseEntity<String> card(@RequestBody CardDto dto) {
+		// 일치하는 카드 가져오기
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		String id = auth.getName();
 		MemberDto m = service.getUser(id);
 		CardDto c = cservice.get(Card.create(dto));
-		if(c==null){
-			map.addAttribute("msg","일치하는 카드가 없습니다");
-			map.addAttribute("flag",true);
-			map.addAttribute("member", m);
-			return "member/card";
+		if (c == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("일치하는 카드가 없습니다");
 		}
-		log.debug("c: {}", c);
-		log.debug("m: {}", m);
 		m.setCardnum(Card.create(c));
-		//같은카드를 두명이서 등록하면 오류 발생
+		// 같은카드를 두명이서 등록하면 오류 발생
 		try {
 			service.edit(m);
-		}catch(Exception e){
-			map.addAttribute("msg","이미 등록된 카드입니다.");
-			map.addAttribute("flag",true);
-			map.addAttribute("member", m);
-			return "member/card";
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("이미 등록된 카드 입니다");
 		}
-		return "redirect:/auth/member/card?id="+id;
+		return ResponseEntity.ok("등록 완료");
 	}
 
 	@GetMapping("/auth/member/point")
-	public String pointform(String id, ModelMap map) {
+	public ResponseEntity<MemberDto> pointform() {
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		String id = auth.getName();
 		MemberDto m = service.getUser(id);
-		map.addAttribute("member", m);
-		if(m.getCardnum() == null) {
-			map.addAttribute("flag",true);
-			return "member/card";
+		if (m.getCardnum() == null) {
+			return ResponseEntity.badRequest().body(null);
 		}
-		return "member/point";
+		return ResponseEntity.ok(m);
 	}
 
-	@PostMapping("/auth/member/point")
-	public String point(String id, String point, String customPoint, ModelMap map) {
+	@PatchMapping("/auth/member/point")
+	public ResponseEntity<MemberDto> point(int point) {
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		String id = auth.getName();
 		MemberDto m = service.getUser(id);
-		
-		//point가 한글일때 숫자가 아닐때 오류처리
-		if(point.equals("custom")){
-			m.setPoint(m.getPoint() + Integer.parseInt(customPoint));
-			m.setExp(m.getExp() + Integer.parseInt(customPoint));
-		}else {
-			m.setPoint(m.getPoint() + Integer.parseInt(point));
-			m.setExp(m.getExp() + Integer.parseInt(point));
+		if(m.getCardnum().getPrice()<point) {
+			return ResponseEntity.badRequest().body(null);
 		}
-
-		if(m.getExp()>=1400000){
+		m.setPoint(m.getPoint() + point);
+		m.setExp(m.getExp() + point);
+		if (m.getExp() >= 1400000) {
 			m.setRank("Diamond");
-		}else if(m.getExp()>=400000){
+		} else if (m.getExp() >= 400000) {
 			m.setRank("Gold");
-		}else if(m.getExp()>=100000){
+		} else if (m.getExp() >= 100000) {
 			m.setRank("Silver");
 		}
-		service.edit(m);
-		map.addAttribute("member", m);
-		return "member/point";
-	}
-
-	@ResponseBody
-	@GetMapping("/idcheck")
-	public Map idcheck(String id) {
-		Map map = new HashMap();
-		MemberDto u = service.getUser(id);
-		boolean flag = false;
-		if (u == null) {
-			flag = true;
+		try {
+			service.edit(m);
+		} catch (Exception e) {
+			return ResponseEntity.badRequest().body(null);
 		}
-		map.put("flag", flag);
-		return map;
+		return ResponseEntity.ok(m);
+	}
+	@GetMapping("/idcheck")
+	public ResponseEntity<Boolean> idcheck(String id) {
+		MemberDto u = service.getUser(id);
+		if (u == null) {
+			return ResponseEntity.ok(true);
+		}
+		return ResponseEntity.ok(false);
+		
 	}
 }

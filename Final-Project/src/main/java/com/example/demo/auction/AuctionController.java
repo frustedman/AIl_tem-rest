@@ -1,35 +1,39 @@
 package com.example.demo.auction;
 
-import java.util.Calendar;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
-//import org.springframework.messaging.handler.annotation.MessageMapping;
-//import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.stereotype.Controller;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.auth.TokenProvider;
 import com.example.demo.bid.BidAddDto;
 import com.example.demo.bid.BidDto;
 import com.example.demo.bid.BidService;
-import com.example.demo.product.ProductDto;
 import com.example.demo.product.ProductService;
 import com.example.demo.user.Member;
 import com.example.demo.user.MemberDto;
 import com.example.demo.user.MemberService;
 
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 
 
-@Controller
+@CrossOrigin(origins="*")
+@RestController
 @RequestMapping("/auth/auction")
 @RequiredArgsConstructor
 public class AuctionController {
@@ -42,22 +46,13 @@ public class AuctionController {
 	private ProductService pservice;
 	@Autowired
 	private MemberService mservice;
-	
-	@GetMapping("add")
-	public String addform(int prodnum,ModelMap map) {
-		ProductDto prod=pservice.getProd(prodnum);
-		map.addAttribute("prod", prod);
-		return "/auction/add";
-	}
-	@GetMapping("/event")
-	public String eventform(String mino,ModelMap map) {
-		System.out.println(mino);
-		map.addAttribute("mino", mino);
-		return "/auction/event";
-	}
+	@Autowired
+	private TokenProvider provider;
+	@Autowired
+	private AuthenticationManagerBuilder abuilder;
 	
 	@PostMapping("/add")
-	public String add(AuctionDto a) {
+	public ResponseEntity<Boolean> add(AuctionDto a) {
 		a.setMax(a.getMin());
 		a.setStatus("경매중");
 		if(a.getType().equals(Auction.Type.EVENT)) {
@@ -65,9 +60,13 @@ public class AuctionController {
 		}
 		a.setStart_time(new Date());
 		aservice.setTime(a, a.getTime());
-		aservice.save(a);
+		try {
+			aservice.save(a);
+		}catch(Exception e) {
+			return ResponseEntity.badRequest().body(false);
+		}
 		
-		return "/index_member";
+		return ResponseEntity.ok(true);
 	}
 	
 	@MessageMapping("/price")
@@ -126,57 +125,51 @@ public class AuctionController {
 	}
 	
 	
-	@RequestMapping("/detail")
-	public String detail(int num,ModelMap map,HttpSession session) {
+	@GetMapping("/detail")
+	public ResponseEntity<AuctionTimeFormatDto> detail(int num) {
 		AuctionDto dto=aservice.get(num);
-		map.addAttribute("s", aservice.get(num));
-		Calendar cal = Calendar.getInstance();
-		cal.setTime(dto.getStart_time());
-		String time=""+cal.get(Calendar.DAY_OF_MONTH);
-		time+="일 "+cal.get(Calendar.HOUR_OF_DAY);
-		time+="시"+cal.get(Calendar.MINUTE)+"분";
-		cal.setTime(dto.getEnd_time());
-		String time2=""+cal.get(Calendar.DAY_OF_MONTH);
-		time2+="일 "+cal.get(Calendar.HOUR_OF_DAY);
-		time2+="시"+cal.get(Calendar.MINUTE)+"분";
-		map.addAttribute("start_time", time);
-		map.addAttribute("end_time", time2);
-		String id=(String) session.getAttribute("loginId");
-		map.addAttribute("point",mservice.getUser(id).getPoint());
-		return "/auction/detail";
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		String id = auth.getName();
+		int point =mservice.getUser(id).getPoint();
+		AuctionTimeFormatDto ddto=AuctionTimeFormatDto.create(dto);
+		ddto.setPoint(point);
+		return ResponseEntity.ok(ddto);
 	}
 
 	@GetMapping("/list")
-	public String list(ModelMap map) {
-		map.addAttribute("list", aservice.getAll());
-		return "auction/adminlist";
+	public ResponseEntity<ArrayList<AuctionDto>> list() {
+		return ResponseEntity.ok(aservice.getByStatus("경매중"));
 	}
 
 	@GetMapping("/myauction")
-	public String myauction(ModelMap map,HttpSession session) {
-		String seller = (String) session.getAttribute("loginId");
-		map.addAttribute("list", aservice.getBySeller(seller));
-		return "auction/myauction";
+	public ResponseEntity<ArrayList<AuctionDto>> myauction() {
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		String id = auth.getName();
+		return ResponseEntity.ok(aservice.getBySeller(id));
 	}
 
 	@GetMapping("/mybidauction")
-	public String mybidauction(ModelMap map,HttpSession session) {
-		String buyer = (String) session.getAttribute("loginId");
-		map.addAttribute("list", bservice.getByBuyer2(buyer));
-		return "auction/mybidauction";
+	public ResponseEntity<ArrayList<BidDto>> mybidauction() {
+		Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+		String id = auth.getName();
+		return ResponseEntity.ok(bservice.getByBuyer2(id));
 	}
 
-	@GetMapping("/stop")
-	public String stop(int num){
+	@GetMapping("/stop/{num}")
+	public ResponseEntity<Boolean>  stop(int num){
 		AuctionDto auction=aservice.get(num);
-		auction.setStatus("경매 마감");
-		return "redirect:/auth/report/list";
+		try {
+			auction.setStatus("경매 마감");
+		}catch(Exception e) {
+			return ResponseEntity.ok(false);
+		}
+		return ResponseEntity.ok(true);
 	}
 
-	@RequestMapping("/del")
-	public String del(int num, ModelMap map) {
+	@DeleteMapping("/del/{num}")
+	public String del(int num) {
 		aservice.delete(num);
-		map.addAttribute("list", aservice.getAll());
+		map.addAttri
 		return "auction/adminlist";
 	}
 	

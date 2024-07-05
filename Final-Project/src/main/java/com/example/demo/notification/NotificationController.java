@@ -9,17 +9,20 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Controller
+@RestController
+@CrossOrigin("*")
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class NotificationController {
@@ -62,7 +65,7 @@ public class NotificationController {
                 .collect(Collectors.toList());
     }
     @PostMapping("/report/notice")
-    public String noticeAll(Notification notification) {
+    public ResponseEntity<Void> noticeAll(Notification notification) {
         log.debug("notification: {}", notification.getContent());
         for (MemberDto member: memberService.getAll()){
             if (member.getType().equals("member")) {
@@ -73,7 +76,7 @@ public class NotificationController {
                 messagingTemplate.convertAndSend("/sub/notice/list/" + member.getId(), notificationRepository.findByName(member.getId()));
             }
         }
-        return "index_admin";
+        return ResponseEntity.created(URI.create("/index")).build();
     }
 
 }
