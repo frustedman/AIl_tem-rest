@@ -2,16 +2,24 @@ package com.example.demo.auction;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Service;
 
 import com.example.demo.bid.Bid;
+import com.example.demo.bid.BidAddDto;
 import com.example.demo.bid.BidDao;
+import com.example.demo.bid.BidDto;
 import com.example.demo.product.Product;
 import com.example.demo.user.Member;
 import com.example.demo.user.MemberDao;
+import com.example.demo.user.MemberDto;
 
 @Service
 public class AuctionService {
@@ -187,7 +195,34 @@ public class AuctionService {
 		}
 		return true;
 	}
-	
-	
+	public int bid(BidAddDto b){
+		Member buyer= mdao.findById(b.getBuyer()).orElse(null);
+		Auction auction=dao.findById(b.getParent()).orElse(null);
+		AuctionDto adto=AuctionDto.create(auction);
+		BidDto dto=new BidDto(b.getNum(),auction,buyer,b.getPrice(),new Date());
+		if(dto.getBidtime().after(auction.getEnd_time())) {
+			return 0;
+		}
+		if(!(auction.getType().equals(Auction.Type.EVENT))) {
+			if(bdao.findByParentOrderByNum(auction).size()>0 && !(auction.getType().equals(Auction.Type.BLIND))) {
+				Bid pbid=bdao.findById(auction.getNum()).orElse(null);
+				int getPoint=pbid.getPrice();
+				Member pbuyer= mdao.findById(pbid.getBuyer().getId()).orElse(null);
+				pbuyer.setPoint(pbuyer.getPoint()+getPoint);
+				mdao.save(pbuyer);
+			}
+		}
+		buyer.setPoint(buyer.getPoint()-b.getPrice());
+		bdao.save(Bid.create(dto));
+		adto.setBcnt(auction.getBcnt()+1);
+		if((auction.getType().equals(Auction.Type.EVENT))) {
+			adto.setMax(auction.getMax()+b.getPrice());
+		}else {
+			adto.setMax(b.getPrice());
+		}
+		save(adto);
+		mdao.save(buyer);
+		return adto.getMax();
+	}
 
 }

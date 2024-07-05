@@ -9,10 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +19,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.demo.auth.TokenProvider;
 import com.example.demo.bid.BidAddDto;
 import com.example.demo.bid.BidDto;
 import com.example.demo.bid.BidService;
@@ -37,7 +35,9 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/auth/auction")
 @RequiredArgsConstructor
 public class AuctionController {
-
+	
+	@Autowired
+	private SimpMessagingTemplate messagingTemplate;
 	@Autowired
 	private AuctionService aservice;
 	@Autowired
@@ -64,51 +64,22 @@ public class AuctionController {
 		
 		return ResponseEntity.ok(true);
 	}
-	
+	//ggcode
 	@MessageMapping("/price")
 	@SendTo("/sub/bid")
 	public Map send(BidAddDto b) throws InterruptedException {
 		Map map=new HashMap();
-		MemberDto buyer= mservice.getUser(b.getBuyer());
-		AuctionDto auction=aservice.get(b.getParent());
-		map.put("parent", b.getParent());
-		BidDto dto=new BidDto(b.getNum(),Auction.create(auction),Member.create(buyer),b.getPrice(),new Date());
-		if(dto.getBidtime().after(auction.getEnd_time())) {
-			map.put("msg","end");
-			return map;
-		}
-		if(!(auction.getType().equals(Auction.Type.EVENT))) {
-			if(bservice.getByParent(b.getParent()).size()>0 && !(auction.getType().equals(Auction.Type.BLIND))) {
-				BidDto pbid=bservice.getByBuyer(auction.getNum());
-				int getPoint=pbid.getPrice();
-				System.out.println(getPoint);
-				MemberDto pbuyer= mservice.getUser(pbid.getBuyer().getId());
-				System.out.println(pbuyer.getId());
-				pbuyer.setPoint(pbuyer.getPoint()+getPoint);
-				System.out.println(pbuyer.getPoint());
-				mservice.edit(pbuyer);
-			}
-		}
-		buyer.setPoint(buyer.getPoint()-b.getPrice());
-		bservice.save(dto);
-		auction.setBcnt(auction.getBcnt()+1);
-		if((auction.getType().equals(Auction.Type.EVENT))) {
-			System.out.println(b.getPrice());
-			auction.setMax(auction.getMax()+b.getPrice());
+		int setMax=aservice.bid(b);
+		if(setMax>0) {
+		map.put("price", setMax);
 		}else {
-			auction.setMax(b.getPrice());
+			map.put("msg", "error!");
 		}
-		System.out.println(3);
-		aservice.save(auction);
-		mservice.edit(buyer);
-		String price=""+b.getPrice();
-		map.put("price", auction.getMax());
 		return map;
 	}
 	
 	@MessageMapping("/status")
-	@SendTo("/sub/bid")
-	public Map change(int parent) throws InterruptedException {
+	public void change(int parent) throws InterruptedException {
 		Map map=new HashMap();
 		AuctionDto auction=aservice.get(parent);
 		map.put("parent", parent);
@@ -117,7 +88,7 @@ public class AuctionController {
 			aservice.save(auction);
 			map.put("msg", "경매 마감");
 		}
-		return map;
+		 messagingTemplate.convertAndSend("/sub/bid", map);
 	}
 	
 	
