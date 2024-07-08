@@ -1,8 +1,6 @@
 package com.example.demo.user;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -11,19 +9,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.example.demo.auction.Auction;
-import com.example.demo.auction.AuctionDto;
-import com.example.demo.auction.AuctionService;
 import com.example.demo.auth.TokenProvider;
 import com.example.demo.card.Card;
 import com.example.demo.card.CardDto;
@@ -46,6 +33,7 @@ public class MemberController {
 
 	@PostMapping("/join")
 	public ResponseEntity<Boolean> join(MemberDto u) {
+		System.out.println(u);
 		try {
 			service.save(u);
 		}catch(Exception e){
@@ -59,13 +47,17 @@ public class MemberController {
 		UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(id, pwd);
 		Authentication auth = abuilder.getObject().authenticate(authToken); // authenticate:인증메서드 . 인증한 결과를
 																			// Authentication 객체에 담아서 반환
+		System.out.println(id + pwd);
 		boolean flag = auth.isAuthenticated(); // 인증결과 true or false
+
 		if (flag) {
 			// 인증 성공시 토큰 생성
 			String token = provider.getToken(service.getUser(id));
 			String type = provider.getUserRole(token);
+			System.out.println(type);
+			System.out.println(token);
 			// 토큰을 요청자에게 전달
-			return ResponseEntity.ok(new MemberResponseDto(id,token,type));  
+			return ResponseEntity.ok(new MemberResponseDto(id,token,type));
 		}
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
 	}
@@ -164,12 +156,15 @@ public class MemberController {
 		}
 		return ResponseEntity.ok(m);
 	}
-	@GetMapping("/idcheck")
-	public ResponseEntity<Boolean> idcheck(String id) {
+	@GetMapping("/idcheck/{id}")
+	public ResponseEntity<Boolean> idcheck(@PathVariable String id) {
+
 		MemberDto u = service.getUser(id);
 		if (u == null) {
+			System.out.println(true);
 			return ResponseEntity.ok(true);
 		}
+
 		return ResponseEntity.ok(false);
 		
 	}
